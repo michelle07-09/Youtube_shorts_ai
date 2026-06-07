@@ -1,0 +1,34 @@
+{
+  "title": "Demo Short: Local demo dark horror short 17.57.53",
+  "story": "Local demo video for Local demo dark horror short 17.57.53.",
+  "scenes": [
+    {
+      "scene": 1,
+      "imagePrompt": "Local demo scene 1",
+      "videoPrompt": "Slow vertical motion demo",
+      "narration": "Demo scene 1 for Local demo dark horror short 17.57.53.",
+      "duration": 11
+    },
+    {
+      "scene": 2,
+      "imagePrompt": "Local demo scene 2",
+      "videoPrompt": "Slow vertical motion demo",
+      "narration": "Demo scene 2 for Local demo dark horror short 17.57.53.",
+      "duration": 11
+    },
+    {
+      "scene": 3,
+      "imagePrompt": "Local demo scene 3",
+      "videoPrompt": "Slow vertical motion demo",
+      "narration": "Demo scene 3 for Local demo dark horror short 17.57.53.",
+      "duration": 11
+    },
+    {
+      "scene": 4,
+      "imagePrompt": "Local demo scene 4",
+      "videoPrompt": "Slow vertical motion demo",
+      "narration": "Demo scene 4 for Local demo dark horror short 17.57.53.",
+      "duration": 11
+    }
+  ]
+}

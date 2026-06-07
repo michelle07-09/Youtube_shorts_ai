@@ -1,0 +1,11 @@
+node_modules
+.next
+.env.local
+.env*.local
+data/
+public/output/
+*.log
+.git
+.gitignore
+README.md
+.env.railway.example

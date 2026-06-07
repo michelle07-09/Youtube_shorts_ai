@@ -1,0 +1,4 @@
+file 'C:/Users/miche/OneDrive/LEARNINGAAH/YoutubeShortAI-Function/youtube-shorts-ai/public/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_1_segment.mp4'
+file 'C:/Users/miche/OneDrive/LEARNINGAAH/YoutubeShortAI-Function/youtube-shorts-ai/public/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_2_segment.mp4'
+file 'C:/Users/miche/OneDrive/LEARNINGAAH/YoutubeShortAI-Function/youtube-shorts-ai/public/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_3_segment.mp4'
+file 'C:/Users/miche/OneDrive/LEARNINGAAH/YoutubeShortAI-Function/youtube-shorts-ai/public/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_4_segment.mp4'

@@ -1,0 +1,158 @@
+{
+  "topics": [
+    {
+      "id": "599c9617-19f5-445e-86e4-c26810afa244",
+      "text": "Local demo dark horror short 17.57.53",
+      "status": "done",
+      "createdAt": "2026-05-31T10:57:53.457Z"
+    }
+  ],
+  "runs": [
+    {
+      "id": "eb15ae70-218d-475e-817d-7a13addac5e0",
+      "topicId": "599c9617-19f5-445e-86e4-c26810afa244",
+      "topic": "Local demo dark horror short 17.57.53",
+      "status": "done",
+      "stages": {
+        "script": {
+          "status": "done",
+          "completedAt": "2026-05-31T10:57:53.478Z",
+          "output": {
+            "title": "Demo Short: Local demo dark horror short 17.57.53",
+            "story": "Local demo video for Local demo dark horror short 17.57.53.",
+            "scenes": [
+              {
+                "scene": 1,
+                "imagePrompt": "Local demo scene 1",
+                "videoPrompt": "Slow vertical motion demo",
+                "narration": "Demo scene 1 for Local demo dark horror short 17.57.53.",
+                "duration": 11
+              },
+              {
+                "scene": 2,
+                "imagePrompt": "Local demo scene 2",
+                "videoPrompt": "Slow vertical motion demo",
+                "narration": "Demo scene 2 for Local demo dark horror short 17.57.53.",
+                "duration": 11
+              },
+              {
+                "scene": 3,
+                "imagePrompt": "Local demo scene 3",
+                "videoPrompt": "Slow vertical motion demo",
+                "narration": "Demo scene 3 for Local demo dark horror short 17.57.53.",
+                "duration": 11
+              },
+              {
+                "scene": 4,
+                "imagePrompt": "Local demo scene 4",
+                "videoPrompt": "Slow vertical motion demo",
+                "narration": "Demo scene 4 for Local demo dark horror short 17.57.53.",
+                "duration": 11
+              }
+            ]
+          }
+        },
+        "images": {
+          "status": "done",
+          "completedAt": "2026-05-31T10:57:53.987Z",
+          "output": [
+            "/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_1.png",
+            "/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_2.png",
+            "/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_3.png",
+            "/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_4.png"
+          ]
+        },
+        "audio": {
+          "status": "done",
+          "completedAt": "2026-05-31T10:57:54.340Z",
+          "output": "/output/eb15ae70-218d-475e-817d-7a13addac5e0/narration.mp3"
+        },
+        "videos": {
+          "status": "done",
+          "completedAt": "2026-05-31T10:57:57.859Z",
+          "output": [
+            "/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_1.png",
+            "/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_2.png",
+            "/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_3.png",
+            "/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_4.png"
+          ]
+        },
+        "titles": {
+          "status": "done",
+          "completedAt": "2026-05-31T10:58:00.331Z",
+          "output": {
+            "main": "Demo Short: Local demo dark horror short 17.57.53",
+            "alternatives": [
+              "Demo Short: Local demo dark horror short 17.57.53"
+            ]
+          }
+        },
+        "assemble": {
+          "status": "done",
+          "completedAt": "2026-05-31T10:58:10.152Z",
+          "output": {
+            "finalVideoPath": "/output/eb15ae70-218d-475e-817d-7a13addac5e0/final_video.mp4",
+            "duration": 44
+          }
+        },
+        "save": {
+          "status": "done",
+          "completedAt": "2026-05-31T10:58:10.157Z",
+          "output": {
+            "title": "Demo Short: Local demo dark horror short 17.57.53",
+            "videoUrl": "/output/eb15ae70-218d-475e-817d-7a13addac5e0/final_video.mp4",
+            "thumbnailUrl": "/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_1.png"
+          }
+        },
+        "upload": {
+          "status": "done",
+          "completedAt": "2026-05-31T10:58:10.160Z",
+          "output": "Auto-upload is disabled."
+        }
+      },
+      "createdAt": "2026-05-31T10:57:53.465Z",
+      "updatedAt": "2026-05-31T10:58:10.160Z",
+      "result": {
+        "title": "Demo Short: Local demo dark horror short 17.57.53",
+        "videoUrl": "/output/eb15ae70-218d-475e-817d-7a13addac5e0/final_video.mp4",
+        "thumbnailUrl": "/output/eb15ae70-218d-475e-817d-7a13addac5e0/scene_1.png"
+      }
+    }
+  ],
+  "settings": {
+    "openaiKey": "",
+    "elevenLabsKey": "",
+    "elevenLabsVoiceId": "21m00Tcm4TlvDq8ikWAM",
+    "falKey": "",
+    "klingKey": "",
+    "klingSecret": "",
+    "pixverseKey": "",
+    "youtubeClientId": "",
+    "youtubeClientSecret": "",
+    "youtubeRefreshToken": "",
+    "imageProvider": "dalle3",
+    "videoProvider": "kling",
+    "audioProvider": "elevenlabs",
+    "channelName": "The Haunted Archives",
+    "channelStyle": "Dark Horror",
+    "videoDuration": "45",
+    "language": "English",
+    "autopilotEnabled": false,
+    "autopilotIntervalMinutes": "60",
+    "autopilotMaxRunsPerDay": "3",
+    "autopilotAutoUpload": false,
+    "autopilotVisibility": "private",
+    "autopilotTopicPrompt": "Generate fresh, high-retention YouTube Shorts topics that fit the channel style. Avoid duplicates.",
+    "localDemoMode": true
+  },
+  "automation": {
+    "enabled": false,
+    "running": false,
+    "runsToday": 1,
+    "day": "2026-05-31",
+    "lastMessage": "Autopilot run completed.",
+    "lastHeartbeatAt": "2026-05-31T10:58:10.161Z",
+    "nextRunAt": "2026-05-31T11:58:10.161Z",
+    "lastRunAt": "2026-05-31T10:58:10.161Z"
+  }
+}
