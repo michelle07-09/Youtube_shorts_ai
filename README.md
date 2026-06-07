@@ -2,9 +2,6 @@
 
 A fully automated, AI-powered YouTube Shorts generation system. From a single story idea to a published YouTube Short — completely hands-free.
 
-> [!IMPORTANT]
-> **Repository Layout**: The Next.js source code is located inside the [`youtube-shorts-ai`](./youtube-shorts-ai) subdirectory.
-
 ## Pipeline Flow
 
 ```
@@ -22,7 +19,7 @@ Topic Idea
     ↓
 🎞️ Assemble Final Video (FFmpeg)
     ↓
-📤 Upload to YouTube Shorts / Instagram / TikTok
+📤 Upload to YouTube Shorts
 ```
 
 ---
@@ -31,15 +28,20 @@ Topic Idea
 
 The easiest way to run this app is to deploy it to [Railway](https://railway.app) — no local setup needed.
 
-### 1. Create a Railway Project
+### 1. Push to GitHub
+```bash
+git init && git add -A && git commit -m "Initial commit"
+git remote add origin https://github.com/YOUR_USERNAME/youtube-shorts-ai.git
+git push -u origin main
+```
+
+### 2. Create a Railway Project
 1. Go to [railway.app](https://railway.app) and sign in
 2. Click **New Project → Deploy from GitHub Repo**
-3. Select your `Youtube_shorts_ai` repo
-4. **IMPORTANT STEP**: Go to your service **Settings** in Railway dashboard. Under **General → Root Directory**, change it to: `youtube-shorts-ai`. This ensures Railway builds the project from the subdirectory.
-5. Railway will automatically detect the Dockerfile inside the `youtube-shorts-ai` folder and start building.
+3. Select your `youtube-shorts-ai` repo
+4. Railway will automatically detect the Dockerfile and start building
 
-### 2. Attach Persistent Volumes
-Since containers are ephemeral, you need persistent volumes to keep your database and generated files across deployments.
+### 3. Attach Persistent Volumes
 In your Railway service settings:
 1. Go to **Settings → Volumes**
 2. Add a volume:
@@ -47,8 +49,8 @@ In your Railway service settings:
 3. Add another volume:
    - Mount path: `/app/output` (for generated videos/images)
 
-### 3. Set Environment Variables
-Go to **Variables** tab and add your API keys (see `youtube-shorts-ai/.env.railway.example` for the full list):
+### 4. Set Environment Variables
+Go to **Variables** tab and add your API keys (see `.env.railway.example` for the full list):
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -57,14 +59,20 @@ Go to **Variables** tab and add your API keys (see `youtube-shorts-ai/.env.railw
 | `KLING_API_KEY` + `KLING_API_SECRET` | Optional | Kling video generation |
 | `YOUTUBE_CLIENT_ID` + `YOUTUBE_CLIENT_SECRET` | Optional | YouTube auto-upload |
 
-### 4. Generate a Public Domain
-Railway auto-generates a public URL. Go to **Settings → Networking → Generate Domain**.
+### 5. Generate a Public Domain
+Railway auto-generates a public URL like `https://youtube-shorts-ai-production-XXXX.up.railway.app`.
+Go to **Settings → Networking → Generate Domain**.
 
-### 5. Update OAuth Redirect URIs
-Once deployed, open the Settings panel in the web UI. It will automatically detect and show the exact redirect URIs based on your deployed domain:
-* **YouTube**: `https://YOUR-DOMAIN.up.railway.app/api/auth/youtube/callback`
-* **Instagram**: `https://YOUR-DOMAIN.up.railway.app/api/auth/instagram/callback`
-* **TikTok**: `https://YOUR-DOMAIN.up.railway.app/api/auth/tiktok/callback`
+### 6. Update YouTube OAuth (if using)
+In [Google Cloud Console](https://console.cloud.google.com):
+1. Go to your OAuth 2.0 credentials
+2. Update the **Authorized redirect URI** to:
+   ```
+   https://YOUR-RAILWAY-DOMAIN.up.railway.app/api/auth/youtube/callback
+   ```
+
+### 7. You're Live! 🎉
+Open your Railway URL in any browser and start generating YouTube Shorts.
 
 ---
 
@@ -72,7 +80,6 @@ Once deployed, open the Settings panel in the web UI. It will automatically dete
 
 ### 1. Install dependencies
 ```bash
-cd youtube-shorts-ai
 npm install
 ```
 
@@ -81,9 +88,78 @@ npm install
 - **macOS**: `brew install ffmpeg`
 - **Linux**: `apt install ffmpeg`
 
-### 3. Run the dev server
+### 3. Configure API Keys
+Copy `.env.local` and fill in your keys, OR use the Settings panel in the UI.
+
+### 4. Run the dev server
 ```bash
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
+
+---
+
+## API Keys Required
+
+| Service | Required | Used For |
+|---------|----------|----------|
+| OpenAI | ✅ Yes | Script generation, images (DALL-E), TTS |
+| ElevenLabs | Optional | Higher quality narration |
+| FAL.ai | Optional | Flux image generation (better than DALL-E) |
+| Kling AI | Optional | Image-to-video generation |
+| PixVerse | Optional | Image-to-video (alternative) |
+| Google Cloud | Optional | YouTube auto-upload |
+
+## YouTube OAuth Setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project
+3. Enable **YouTube Data API v3**
+4. Create **OAuth 2.0 credentials** (Web Application type)
+5. Add authorized redirect URI:
+   - Local: `http://localhost:3000/api/auth/youtube/callback`
+   - Railway: `https://YOUR-DOMAIN.up.railway.app/api/auth/youtube/callback`
+6. Copy Client ID + Secret to Settings (or Railway env vars)
+7. Click **Connect YouTube Account** in Settings
+
+## File Structure
+
+```
+├── app/
+│   ├── page.tsx              # Dashboard
+│   ├── pipeline/page.tsx     # Live pipeline runner
+│   ├── settings/page.tsx     # API key configuration
+│   ├── history/page.tsx      # Run history
+│   ├── autopilot/page.tsx    # Autopilot / Series manager
+│   └── api/
+│       ├── pipeline/run/     # SSE pipeline orchestrator
+│       ├── output/[...path]/ # File serving (volumes)
+│       ├── topics/           # Topic CRUD
+│       ├── runs/             # Run history
+│       ├── settings/         # Settings CRUD
+│       ├── upload-youtube/   # YouTube upload
+│       ├── upload-multiplatform/ # Multi-platform upload
+│       └── auth/             # OAuth flows (YouTube/Instagram/TikTok)
+├── lib/
+│   ├── db.ts                 # JSON database (uses DATA_DIR)
+│   ├── series.ts             # Series management
+│   ├── pipeline-orchestrator.ts
+│   ├── autopilot.ts          # Autonomous episode engine
+│   ├── scheduler.ts          # Cron-based scheduler
+│   └── providers/
+│       ├── openai.ts
+│       ├── elevenlabs.ts
+│       ├── fal.ts
+│       ├── kling.ts
+│       ├── pixverse.ts
+│       ├── youtube.ts
+│       ├── instagram.ts
+│       └── tiktok.ts
+├── data/                     # Auto-created database (or Railway volume)
+├── public/output/            # Generated videos & images (or Railway volume)
+├── Dockerfile                # Multi-stage production build
+├── railway.json              # Railway deployment config
+├── .env.local                # Local dev env vars
+└── .env.railway.example      # Railway env var template
+```
