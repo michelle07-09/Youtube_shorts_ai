@@ -60,19 +60,30 @@ Go to **Variables** tab and add your API keys (see `.env.railway.example` for th
 | `YOUTUBE_CLIENT_ID` + `YOUTUBE_CLIENT_SECRET` | Optional | YouTube auto-upload |
 
 ### 5. Generate a Public Domain
-Railway auto-generates a public URL like `https://youtube-shorts-ai-production-XXXX.up.railway.app`.
-Go to **Settings → Networking → Generate Domain**.
+Your production deployment URL is:
+`https://youtubeshortsai-production.up.railway.app/`
 
 ### 6. Update YouTube OAuth (if using)
 In [Google Cloud Console](https://console.cloud.google.com):
 1. Go to your OAuth 2.0 credentials
 2. Update the **Authorized redirect URI** to:
    ```
-   https://YOUR-RAILWAY-DOMAIN.up.railway.app/api/auth/youtube/callback
+   https://youtubeshortsai-production.up.railway.app/api/auth/youtube/callback
    ```
 
 ### 7. You're Live! 🎉
-Open your Railway URL in any browser and start generating YouTube Shorts.
+Open your Railway URL in any browser: [https://youtubeshortsai-production.up.railway.app/](https://youtubeshortsai-production.up.railway.app/)
+
+---
+
+## 🤖 Background Autopilot (Hands-Free Mode)
+
+Yes! This application **runs entirely on its own 24/7** without you needing to open the web interface or keep any browser tabs open. 
+
+### How it works:
+1. **Persistent Server**: Since the app is deployed on Railway, it runs as a persistent Docker container that stays online continuously.
+2. **Auto-Initialization**: When Railway deploys/boots the container, it automatically pings the `/api/scheduler/init` endpoint (configured as a healthcheck in `railway.json`). This initializes the background `node-cron` scheduler.
+3. **Autopilot Series**: Once you configure an active series in the **Autopilot** dashboard with a scheduling pattern (cron expression), the server will automatically run the pipeline (generating script, audio, images, assembling video, and uploading) at those scheduled times completely hands-free.
 
 ---
 
