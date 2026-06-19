@@ -3,8 +3,11 @@
 // Pings the app's own /api/health endpoint every 4 minutes.
 // This ensures node-cron jobs keep running 24/7 without anyone visiting the site.
 
+import { getActiveJobIds, getRunningSeriesIds } from "./scheduler";
+
 const PING_INTERVAL_MS = 4 * 60 * 1000; // 4 minutes
 let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+let pingCount = 0;
 
 function getAppUrl(): string {
   // Railway auto-sets RAILWAY_PUBLIC_DOMAIN
@@ -21,6 +24,7 @@ function getAppUrl(): string {
 }
 
 async function ping() {
+  pingCount++;
   const url = `${getAppUrl()}/api/health`;
   try {
     const res = await fetch(url, {
@@ -28,13 +32,16 @@ async function ping() {
       signal: AbortSignal.timeout(10000), // 10s timeout
     });
     if (res.ok) {
-      console.log(`[KeepAlive] ✅ Ping OK (${new Date().toISOString()})`);
+      const activeJobs = getActiveJobIds();
+      const running = getRunningSeriesIds();
+      const status = running.length > 0 ? `🔄 ${running.length} running` : "idle";
+      console.log(`[KeepAlive] ✅ Ping #${pingCount} OK | Jobs: ${activeJobs.length} | Status: ${status} | ${new Date().toISOString()}`);
     } else {
-      console.warn(`[KeepAlive] ⚠️ Ping returned ${res.status}`);
+      console.warn(`[KeepAlive] ⚠️ Ping #${pingCount} returned ${res.status}`);
     }
   } catch (err) {
     // Don't crash on ping failures — just log and retry next interval
-    console.warn(`[KeepAlive] ⚠️ Ping failed: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(`[KeepAlive] ⚠️ Ping #${pingCount} failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 

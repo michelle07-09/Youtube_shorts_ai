@@ -1,6 +1,6 @@
 // lib/scheduler.ts
 // Node-cron based scheduler — keeps cron jobs alive for all active series
-// Enhanced with missed episode detection + auto-run on boot
+// Enhanced with missed episode detection + auto-run on boot + retry logic
 
 import cron, { ScheduledTask } from "node-cron";
 import { getActiveSeries, getSeriesById, updateSeries, computeNextRun } from "./series";
@@ -9,6 +9,10 @@ import { runAutopilotEpisode } from "./autopilot";
 const activeJobs = new Map<string, ScheduledTask>();
 const runningSeriesIds = new Set<string>(); // Prevent duplicate concurrent runs
 
+// Retry config for failed episodes
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 5 * 60 * 1000; // 5 minutes between retries
+
 /** Start cron jobs for all active series */
 export function initScheduler() {
   console.log("[Scheduler] ═══════════════════════════════════════════════");
@@ -16,7 +20,13 @@ export function initScheduler() {
   console.log(`[Scheduler] Time: ${new Date().toISOString()}`);
 
   const series = getActiveSeries();
+  
+  if (series.length === 0) {
+    console.log("[Scheduler] ⚠️  No active series found! Create one via the web UI or API.");
+  }
+  
   for (const s of series) {
+    console.log(`[Scheduler] 📋 Series: "${s.name}" | Schedule: ${s.schedule} (${s.scheduleLabel}) | Episodes: ${s.episodeCount} | Active: ${s.active}`);
     scheduleSeriesJob(s.id, s.schedule);
   }
 
@@ -44,22 +54,57 @@ export function scheduleSeriesJob(seriesId: string, cronExpr: string) {
       return;
     }
 
-    console.log(`[Scheduler] 🔔 Cron fired for series: "${series.name}" at ${new Date().toISOString()}`);
+    console.log(`[Scheduler] ═══════════════════════════════════════════════`);
+    console.log(`[Scheduler] 🔔 CRON FIRED for series: "${series.name}"`);
+    console.log(`[Scheduler] Time: ${new Date().toISOString()}`);
+    console.log(`[Scheduler] Episode #: ${series.episodeCount + 1}`);
+    console.log(`[Scheduler] ═══════════════════════════════════════════════`);
+    
     updateSeries(seriesId, { nextRunAt: computeNextRun(cronExpr) });
 
-    runningSeriesIds.add(seriesId);
-    try {
-      await runAutopilotEpisode(series);
-      console.log(`[Scheduler] ✅ Cron episode complete for "${series.name}"`);
-    } catch (err) {
-      console.error(`[Scheduler] ❌ Autopilot failed for ${seriesId}:`, err);
-    } finally {
-      runningSeriesIds.delete(seriesId);
-    }
+    await runWithRetry(series, 0);
   });
 
   activeJobs.set(seriesId, task);
-  console.log(`[Scheduler] ✅ Scheduled series ${seriesId} with cron: ${cronExpr}`);
+  console.log(`[Scheduler] ✅ Scheduled series "${seriesId}" with cron: ${cronExpr}`);
+}
+
+/** Run an autopilot episode with retry logic */
+async function runWithRetry(series: { id: string; name: string }, attempt: number): Promise<void> {
+  const seriesId = series.id;
+  
+  runningSeriesIds.add(seriesId);
+  try {
+    const freshSeries = getSeriesById(seriesId);
+    if (!freshSeries || !freshSeries.active) {
+      console.log(`[Scheduler] ⚠️ Series "${series.name}" is no longer active, skipping.`);
+      return;
+    }
+    
+    await runAutopilotEpisode(freshSeries);
+    console.log(`[Scheduler] ✅ Episode complete for "${series.name}" (attempt ${attempt + 1})`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : "";
+    
+    console.error(`[Scheduler] ❌ Autopilot failed for "${series.name}" (attempt ${attempt + 1}/${MAX_RETRIES})`);
+    console.error(`[Scheduler] Error: ${message}`);
+    if (stack) console.error(`[Scheduler] Stack: ${stack}`);
+    
+    if (attempt < MAX_RETRIES - 1) {
+      const delayMs = RETRY_DELAY_MS * (attempt + 1); // Exponential-ish backoff
+      console.log(`[Scheduler] 🔄 Retrying in ${delayMs / 1000}s...`);
+      
+      // Schedule retry
+      runningSeriesIds.delete(seriesId);
+      setTimeout(() => runWithRetry(series, attempt + 1), delayMs);
+      return; // Don't delete from runningSeriesIds yet — the retry will handle it
+    } else {
+      console.error(`[Scheduler] 💀 All ${MAX_RETRIES} retries exhausted for "${series.name}". Will try again at next scheduled time.`);
+    }
+  } finally {
+    runningSeriesIds.delete(seriesId);
+  }
 }
 
 /** Stop a series cron job */
@@ -77,6 +122,11 @@ export function getActiveJobIds(): string[] {
   return Array.from(activeJobs.keys());
 }
 
+/** Get currently running series IDs */
+export function getRunningSeriesIds(): string[] {
+  return Array.from(runningSeriesIds);
+}
+
 /**
  * Check all active series for missed episodes and run them immediately.
  * A series is "missed" if:
@@ -90,8 +140,11 @@ export async function checkAndRunMissedEpisodes(): Promise<void> {
   const now = new Date();
   const series = getActiveSeries();
   
-  console.log("[Scheduler] 🔍 Checking for missed episodes...");
-  console.log(`[Scheduler] Found ${series.length} active series to check.`);
+  console.log("[Scheduler] ═══════════════════════════════════════════════");
+  console.log("[Scheduler] 🔍 MISSED EPISODE CHECK");
+  console.log(`[Scheduler] Time: ${now.toISOString()}`);
+  console.log(`[Scheduler] Active series: ${series.length}`);
+  console.log("[Scheduler] ═══════════════════════════════════════════════");
 
   let missedCount = 0;
 
@@ -102,8 +155,8 @@ export async function checkAndRunMissedEpisodes(): Promise<void> {
 
     if (neverRan || isMissed) {
       const reason = neverRan
-        ? "has never run"
-        : `missed schedule (was ${nextRun?.toISOString()})`;
+        ? "has NEVER run (first episode!)"
+        : `missed schedule (was due ${nextRun?.toISOString()}, ${Math.round((now.getTime() - (nextRun?.getTime() || 0)) / 3600000)}h ago)`;
 
       // Don't double-run
       if (runningSeriesIds.has(s.id)) {
@@ -114,23 +167,14 @@ export async function checkAndRunMissedEpisodes(): Promise<void> {
       console.log(`[Scheduler] 🔔 "${s.name}" ${reason} — triggering now!`);
       missedCount++;
 
-      // Run in background (don't block other series from being checked)
-      runningSeriesIds.add(s.id);
-      void (async () => {
-        try {
-          const freshSeries = getSeriesById(s.id);
-          if (freshSeries && freshSeries.active) {
-            await runAutopilotEpisode(freshSeries);
-            // Update nextRunAt after successful run
-            updateSeries(s.id, { nextRunAt: computeNextRun(s.schedule) });
-            console.log(`[Scheduler] ✅ Missed episode for "${s.name}" completed!`);
-          }
-        } catch (err) {
-          console.error(`[Scheduler] ❌ Missed episode for "${s.name}" failed:`, err);
-        } finally {
-          runningSeriesIds.delete(s.id);
-        }
-      })();
+      // Run in background with retry (don't block other series from being checked)
+      void runWithRetry(s, 0).then(() => {
+        // Update nextRunAt after successful run
+        updateSeries(s.id, { nextRunAt: computeNextRun(s.schedule) });
+        console.log(`[Scheduler] ✅ Missed episode for "${s.name}" completed!`);
+      }).catch(err => {
+        console.error(`[Scheduler] ❌ Missed episode for "${s.name}" failed after all retries:`, err);
+      });
     } else {
       console.log(`[Scheduler] ⏰ "${s.name}" is on schedule. Next run: ${nextRun?.toISOString() || "unknown"}`);
     }

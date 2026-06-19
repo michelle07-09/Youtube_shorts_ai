@@ -1,5 +1,6 @@
 // lib/autopilot.ts
 // Autonomous daily upload engine — generates topic + runs full pipeline + uploads
+// Enhanced with detailed logging, credential pre-checks, and clear error messages
 
 import OpenAI from "openai";
 import path from "path";
@@ -27,7 +28,7 @@ const runLogs: Record<string, AutopilotLog[]> = {};
 function log(seriesId: string, level: AutopilotLog["level"], message: string) {
   if (!runLogs[seriesId]) runLogs[seriesId] = [];
   runLogs[seriesId].push({ time: new Date().toISOString(), level, message });
-  console.log(`[Autopilot:${seriesId}] [${level.toUpperCase()}] ${message}`);
+  console.log(`[Autopilot:${seriesId.slice(0, 8)}] [${level.toUpperCase()}] ${message}`);
 }
 
 export function getLogs(seriesId: string): AutopilotLog[] {
@@ -73,15 +74,62 @@ export async function runAutopilotEpisode(series: Series): Promise<void> {
   const settings = getSettings();
   runLogs[series.id] = [];
 
-  log(series.id, "info", `🚀 Starting autopilot for "${series.name}"`);
+  log(series.id, "info", "═══════════════════════════════════════════════");
+  log(series.id, "info", `🚀 AUTOPILOT STARTING for "${series.name}"`);
+  log(series.id, "info", `Time: ${new Date().toISOString()}`);
+  log(series.id, "info", "═══════════════════════════════════════════════");
+
+  // ── Pre-flight credential check ───────────────────────────────
+  log(series.id, "info", "🔑 Pre-flight credential check...");
+  
+  if (!settings.openaiKey) {
+    log(series.id, "error", "❌ FATAL: OpenAI API key is missing! Cannot generate anything.");
+    throw new Error("OpenAI API key is not configured. Set OPENAI_API_KEY environment variable.");
+  }
+  log(series.id, "info", "  ✅ OpenAI API key: configured");
+
+  const audioOk = settings.audioProvider === "elevenlabs" 
+    ? !!settings.elevenLabsKey 
+    : !!settings.openaiKey;
+  log(series.id, "info", `  ${audioOk ? "✅" : "⚠️"} Audio (${settings.audioProvider}): ${audioOk ? "configured" : "will fall back to OpenAI TTS"}`);
+
+  // Get fresh series definition to check platform settings
+  let freshSeries = getSeriesById(series.id) || series;
+  const enabledPlatforms = freshSeries.platforms || { youtube: true, instagram: true, tiktok: true };
+
+  const ytConfigured = !!(settings.youtubeClientId && settings.youtubeClientSecret && settings.youtubeRefreshToken);
+  log(series.id, "info", `  ${ytConfigured ? "✅" : "❌"} YouTube upload: ${ytConfigured ? "configured" : "MISSING CREDENTIALS"}`);
+  if (!ytConfigured) {
+    if (!settings.youtubeRefreshToken) log(series.id, "error", "  → YouTube Refresh Token is EMPTY. Authorize at /api/auth/youtube");
+    if (!settings.youtubeClientId) log(series.id, "error", "  → YouTube Client ID is EMPTY");
+    if (!settings.youtubeClientSecret) log(series.id, "error", "  → YouTube Client Secret is EMPTY");
+  }
+
+  if (enabledPlatforms.instagram) {
+    const igOk = !!(settings.instagramAccessToken && settings.instagramUserId);
+    log(series.id, "info", `  ${igOk ? "✅" : "⚠️"} Instagram: ${igOk ? "configured" : "skipped (no credentials)"}`);
+  }
+  if (enabledPlatforms.tiktok) {
+    const ttOk = !!settings.tiktokAccessToken;
+    log(series.id, "info", `  ${ttOk ? "✅" : "⚠️"} TikTok: ${ttOk ? "configured" : "skipped (no credentials)"}`);
+  }
 
   const episodeNumber = series.episodeCount + 1;
+  log(series.id, "info", `📺 Episode #${episodeNumber} of "${series.name}"`);
 
   // ── 1: Generate unique topic ──────────────────────────────────
   log(series.id, "info", `🧠 Generating topic for Episode ${episodeNumber}...`);
   const { getEpisodesBySeriesId } = await import("./series");
   const pastTopics = getEpisodesBySeriesId(series.id).map((e) => e.topic);
-  const topic = await generateEpisodeTopic(settings.openaiKey, series, episodeNumber, pastTopics);
+  
+  let topic: string;
+  try {
+    topic = await generateEpisodeTopic(settings.openaiKey, series, episodeNumber, pastTopics);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log(series.id, "error", `❌ Failed to generate topic: ${msg}`);
+    throw err;
+  }
   log(series.id, "info", `📝 Topic: "${topic}"`);
 
   // ── 2: Create episode record ──────────────────────────────────
@@ -101,7 +149,7 @@ export async function runAutopilotEpisode(series: Series): Promise<void> {
   updateEpisode(episode.id, { runId });
 
   // Generate character sheet and setting description on the first episode if not already present
-  let freshSeries = getSeriesById(series.id) || series;
+  freshSeries = getSeriesById(series.id) || series;
   let characterSheet = freshSeries.characterSheet;
   let settingDescription = freshSeries.settingDescription;
 
@@ -139,6 +187,12 @@ export async function runAutopilotEpisode(series: Series): Promise<void> {
 
   // ── 4: Run full pipeline (script → images → voiceover → assemble) ──
   log(series.id, "info", "⚡ Running full AI pipeline...");
+  log(series.id, "info", "  Step 1/6: Script generation (GPT-4o)");
+  log(series.id, "info", "  Step 2/6: Image generation (DALL-E 3 / Flux)");
+  log(series.id, "info", "  Step 3/6: Voiceover (ElevenLabs / OpenAI TTS)");
+  log(series.id, "info", "  Step 4/6: Video generation (Kling / PixVerse)");
+  log(series.id, "info", "  Step 5/6: FFmpeg assembly");
+  log(series.id, "info", "  Step 6/6: Upload to platforms");
 
   let finalTitle = topic;
   let videoPath: string | undefined;
@@ -167,13 +221,15 @@ export async function runAutopilotEpisode(series: Series): Promise<void> {
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : "";
     log(series.id, "error", `❌ Pipeline failed: ${message}`);
+    if (stack) log(series.id, "error", `Stack: ${stack}`);
     updateEpisode(episode.id, { status: "failed", title: finalTitle });
     updateSeries(series.id, {
       lastRunAt: new Date().toISOString(),
       nextRunAt: computeNextRun(series.schedule),
     });
-    return;
+    throw err; // Re-throw so scheduler can retry
   }
 
   log(series.id, "success", `✅ Pipeline done: "${finalTitle}"`);
@@ -187,10 +243,9 @@ export async function runAutopilotEpisode(series: Series): Promise<void> {
 
   // Get fresh series definition to check platform settings
   freshSeries = getSeriesById(series.id) || series;
-  const enabledPlatforms = freshSeries.platforms || { youtube: true, instagram: true, tiktok: true };
 
   // ── 5: YouTube Upload + Auto-Playlist ────────────────────────
-  if (enabledPlatforms.youtube && settings.youtubeClientId && settings.youtubeRefreshToken) {
+  if (enabledPlatforms.youtube && settings.youtubeClientId && settings.youtubeClientSecret && settings.youtubeRefreshToken) {
     const description = [
       `${series.name} — Episode ${episodeNumber}`,
       "",
@@ -229,6 +284,10 @@ export async function runAutopilotEpisode(series: Series): Promise<void> {
 
     try {
       log(series.id, "info", `📤 Uploading Episode ${episodeNumber} to YouTube...`);
+      log(series.id, "info", `📤 Video file: ${videoFilePath}`);
+      log(series.id, "info", `📤 Title: "${finalTitle} #Shorts"`);
+      log(series.id, "info", `📤 Visibility: ${series.youtubeVisibility}`);
+      
       const result = await uploadToYouTube(
         settings.youtubeClientId,
         settings.youtubeClientSecret,
@@ -241,14 +300,21 @@ export async function runAutopilotEpisode(series: Series): Promise<void> {
         playlistId
       );
 
-      log(series.id, "success", `🎉 Uploaded to YouTube! ${result.url}`);
+      log(series.id, "success", `🎉 UPLOADED TO YOUTUBE! ${result.url}`);
       youtubeUrl = result.url;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : "";
       log(series.id, "error", `⚠️ YouTube upload failed: ${message}`);
+      if (stack) log(series.id, "error", `Stack: ${stack}`);
     }
   } else {
-    log(series.id, "info", `⏭️ YouTube upload skipped (disabled or credentials missing).`);
+    const missing: string[] = [];
+    if (!enabledPlatforms.youtube) missing.push("YouTube platform disabled for this series");
+    if (!settings.youtubeClientId) missing.push("YOUTUBE_CLIENT_ID empty");
+    if (!settings.youtubeClientSecret) missing.push("YOUTUBE_CLIENT_SECRET empty");
+    if (!settings.youtubeRefreshToken) missing.push("YOUTUBE_REFRESH_TOKEN empty (authorize at /api/auth/youtube)");
+    log(series.id, "error", `⏭️ YouTube upload SKIPPED: ${missing.join(", ")}`);
   }
 
   // ── 6: Instagram Upload ──────────────────────────────────────────
@@ -281,8 +347,8 @@ export async function runAutopilotEpisode(series: Series): Promise<void> {
       const message = err instanceof Error ? err.message : String(err);
       log(series.id, "error", `⚠️ Instagram upload failed: ${message}`);
     }
-  } else {
-    log(series.id, "info", `⏭️ Instagram upload skipped (disabled or credentials missing).`);
+  } else if (enabledPlatforms.instagram) {
+    log(series.id, "info", `⏭️ Instagram upload skipped (credentials missing).`);
   }
 
   // ── 7: TikTok Upload ─────────────────────────────────────────────
@@ -303,8 +369,8 @@ export async function runAutopilotEpisode(series: Series): Promise<void> {
       const message = err instanceof Error ? err.message : String(err);
       log(series.id, "error", `⚠️ TikTok upload failed: ${message}`);
     }
-  } else {
-    log(series.id, "info", `⏭️ TikTok upload skipped (disabled or credentials missing).`);
+  } else if (enabledPlatforms.tiktok) {
+    log(series.id, "info", `⏭️ TikTok upload skipped (credentials missing).`);
   }
 
   // Final Update to save platform URLs/IDs and set state to done
@@ -322,5 +388,10 @@ export async function runAutopilotEpisode(series: Series): Promise<void> {
     nextRunAt: computeNextRun(series.schedule),
   });
 
-  log(series.id, "success", `✅ Episode ${episodeNumber} complete!`);
+  log(series.id, "success", "═══════════════════════════════════════════════");
+  log(series.id, "success", `✅ Episode ${episodeNumber} of "${series.name}" COMPLETE!`);
+  log(series.id, "success", `   YouTube: ${youtubeUrl || "not uploaded"}`);
+  log(series.id, "success", `   Instagram: ${instagramUrl || "not uploaded"}`);
+  log(series.id, "success", `   TikTok: ${tiktokPublishId || "not uploaded"}`);
+  log(series.id, "success", "═══════════════════════════════════════════════");
 }
